@@ -109,6 +109,10 @@ func (c *Config) setDefaults() error {
 	if c.Server.Protocol == "" {
 		c.Server.Protocol = "http"
 	}
+	// Ensure server URL has a scheme — bare host:port causes Go's URL parser to choke.
+	if c.Server.URL != "" && !strings.HasPrefix(c.Server.URL, "http://") && !strings.HasPrefix(c.Server.URL, "https://") {
+		c.Server.URL = c.Server.Protocol + "://" + c.Server.URL
+	}
 	if c.Server.Token == "" && c.Server.TokenEnv != "" {
 		c.Server.Token = os.Getenv(c.Server.TokenEnv)
 	}

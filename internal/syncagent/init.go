@@ -40,6 +40,10 @@ func RunInit(configPath string, logger *slog.Logger) error {
 	// --- Server ---
 	fmt.Println("─── MAGI Server ───")
 	cfg.Server.URL = prompt(reader, "Server URL", "http://localhost:8302")
+	// Normalize: prepend http:// if user entered bare host:port
+	if !strings.HasPrefix(cfg.Server.URL, "http://") && !strings.HasPrefix(cfg.Server.URL, "https://") {
+		cfg.Server.URL = "http://" + cfg.Server.URL
+	}
 	cfg.Server.Protocol = "http"
 	if strings.HasPrefix(cfg.Server.URL, "https://") {
 		cfg.Server.Protocol = "https"
