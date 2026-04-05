@@ -1,0 +1,4 @@
+magi-sync
+magi-sync-*
+dist/
+*.exe

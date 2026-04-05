@@ -1,0 +1,82 @@
+server:
+  url: http://magi.tailnet-name.ts.net:8302
+  enroll_token_env: MAGI_ADMIN_TOKEN
+  protocol: http
+
+machine:
+  id: laptop-macbook
+  user: UserA
+  groups:
+    - platform
+
+sync:
+  mode: push
+  watch: true
+  interval: 30s
+  retry_backoff: 5s
+  max_batch_size: 50
+  state_file: ~/.config/magi-sync/state.json
+
+privacy:
+  mode: allowlist
+  redact_secrets: true
+  max_file_size_kb: 512
+
+agents:
+  - type: claude
+    name: claude-main
+    enabled: true
+    owner: UserA
+    viewers:
+      - UserB
+    viewer_groups:
+      - platform
+    paths:
+      - ~/.claude
+    # Patterns are relative to the agent's paths root (e.g. ~/.claude)
+    include:
+      - "projects/**/*.jsonl"
+      - "projects/**/CLAUDE.md"
+      - "projects/**/memory/*.md"
+      - "memory/**/*.md"
+      - "plans/**/*.md"
+    exclude:
+      - "**/tmp/**"
+      - "**/cache/**"
+      - "**/*.bin"
+      - "**/plugins/**"
+    visibility: team
+
+  - type: openclaw
+    name: openclaw-gilfoyle
+    enabled: true
+    owner: UserA
+    paths:
+      - ~/.openclaw
+    # Patterns relative to ~/.openclaw
+    include:
+      - "workspace/**/*.md"
+      - "agents/*/sessions/*.jsonl"
+    exclude:
+      - "**/tmp/**"
+      - "**/cache/**"
+      - "**/*.bin"
+      - "**/browser/**"
+      - "**/canvas/**"
+      - "**/completions/**"
+      - "**/credentials/**"
+      - "**/delivery-queue/**"
+      - "**/discord/**"
+      - "**/flows/**"
+      - "**/media/**"
+      - "**/subagents/**"
+      - "**/tasks/**"
+      - "**/*.tar.gz"
+      - "**/*.bak*"
+      - "**/*.tmp"
+    visibility: internal
+
+  - type: codex
+    enabled: false
+    paths:
+      - ~/.codex
