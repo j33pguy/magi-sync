@@ -206,7 +206,29 @@ schtasks /create /tn "magi-sync" /tr "C:\path\to\magi-sync.exe watch" /sc onlogo
 2. New/modified files are matched against include/exclude patterns
 3. Content is optionally redacted (secrets, credentials)
 4. Memories are uploaded to MAGI via the `/sync/memories` or `/remember` endpoint
-5. Other machines running magi-sync can recall shared context through MAGI
+5. **Repository tags** are auto-detected from git remotes and attached to each payload
+6. Other machines running magi-sync can recall shared context through MAGI
+
+### Repository Tags
+
+magi-sync automatically detects the git remote for each scanned directory and tags
+uploaded memories with a compact repo identifier:
+
+| Git Host | Tag Format | Example |
+|----------|------------|----------|
+| GitHub | `ghrepo:<owner>/<repo>` | `ghrepo:j33pguy/magi` |
+| GitLab | `glrepo:<owner>/<repo>` | `glrepo:org/project` |
+| Other | `repo:<host>/<owner>/<repo>` | `repo:git.example.com/team/app` |
+
+This enables querying MAGI by repository:
+
+```bash
+# All memories from a specific repo
+curl "http://magi:8302/memories?tags=ghrepo:j33pguy/magi"
+
+# All tracked project/repo registry entries
+curl "http://magi:8302/memories?tags=inventory"
+```
 
 ## Privacy
 
@@ -220,7 +242,7 @@ magi-sync never uploads anything you don't explicitly allow:
 
 ## Requirements
 
-- A running [MAGI](https://github.com/j33pguy/magi) server (v0.3.9+)
+- A running [MAGI](https://github.com/j33pguy/magi) server (v0.4.1+)
 - No dependencies — single static binary
 
 ## License
