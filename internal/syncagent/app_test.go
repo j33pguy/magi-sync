@@ -18,7 +18,7 @@ func TestAppEnrollPersistsMachineToken(t *testing.T) {
 	var gotBody string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/auth/machines/enroll" {
+		if r.URL.Path != "/auth/enroll" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -69,8 +69,12 @@ func TestAppEnrollPersistsMachineToken(t *testing.T) {
 		t.Fatalf("Run enroll: %v", err)
 	}
 
-	if gotAuth != "Bearer admin-secret" {
-		t.Fatalf("auth = %q want Bearer admin-secret", gotAuth)
+	// Self-enrollment sends token in body, not Authorization header
+	if gotAuth != "" {
+		t.Fatalf("expected no Authorization header for self-enroll, got %q", gotAuth)
+	}
+	if !strings.Contains(gotBody, `"token":"admin-secret"`) {
+		t.Fatalf("expected enrollment token in body, got %q", gotBody)
 	}
 	if !strings.Contains(gotBody, `"machine_id":"MachineA"`) || !strings.Contains(gotBody, `"user":"UserA"`) {
 		t.Fatalf("unexpected body %q", gotBody)

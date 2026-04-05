@@ -17,7 +17,9 @@ type Client struct {
 	client     *http.Client
 }
 
-type enrollRequest struct {
+// selfEnrollRequest matches MAGI's POST /auth/enroll body.
+type selfEnrollRequest struct {
+	Token       string   `json:"token"`
 	User        string   `json:"user"`
 	MachineID   string   `json:"machine_id"`
 	AgentName   string   `json:"agent_name"`
@@ -88,12 +90,13 @@ func (c *Client) Remember(ctx context.Context, p Payload) error {
 }
 
 func (c *Client) Enroll(ctx context.Context, cfg *Config) (*EnrollResponse, error) {
-	adminToken := strings.TrimSpace(cfg.Server.EnrollToken)
-	if adminToken == "" {
+	enrollToken := strings.TrimSpace(cfg.Server.EnrollToken)
+	if enrollToken == "" {
 		return nil, fmt.Errorf("server.enroll_token or server.enroll_token_env is required")
 	}
 
-	body, err := json.Marshal(enrollRequest{
+	body, err := json.Marshal(selfEnrollRequest{
+		Token:       enrollToken,
 		User:        cfg.Machine.User,
 		MachineID:   cfg.Machine.ID,
 		AgentName:   "magi-sync",
@@ -106,12 +109,13 @@ func (c *Client) Enroll(ctx context.Context, cfg *Config) (*EnrollResponse, erro
 		return nil, fmt.Errorf("marshal enroll request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/auth/machines/enroll", bytes.NewReader(body))
+	// POST /auth/enroll — unauthenticated self-enrollment.
+	// The enrollment token is in the JSON body, not the Authorization header.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/auth/enroll", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+adminToken)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
