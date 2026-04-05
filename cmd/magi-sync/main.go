@@ -8,12 +8,25 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/j33pguy/magi-sync/internal/mcpserver"
 	"github.com/j33pguy/magi-sync/internal/syncagent"
 )
 
 func main() {
 	configPath := flag.String("config", syncagent.DefaultConfigPath(), "Path to magi-sync config file")
+	mcpOnly := flag.Bool("mcp", false, "Run as MCP server over stdin/stdout")
 	flag.Parse()
+
+	// MCP mode — run as Model Context Protocol server
+	if *mcpOnly {
+		logger := syncagent.NewLogger()
+		srv := mcpserver.New(*configPath, logger)
+		if err := srv.ServeStdio(); err != nil {
+			fmt.Fprintf(os.Stderr, "mcp server error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	mode := syncagent.ModeOnce
 	if flag.NArg() > 0 {

@@ -466,3 +466,8 @@ func hashBytes(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
+
+// HashBytes is the exported version of hashBytes for use by other packages.
+func HashBytes(b []byte) string {
+	return hashBytes(b)
+}

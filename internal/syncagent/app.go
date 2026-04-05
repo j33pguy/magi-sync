@@ -337,6 +337,41 @@ func (a *App) collectPayloads() ([]Payload, error) {
 	return out, nil
 }
 
+// CountPending returns the number of files that would be synced.
+func (a *App) CountPending(ctx context.Context) (int, error) {
+	payloads, err := a.collectPayloads()
+	if err != nil {
+		return 0, err
+	}
+	return len(payloads), nil
+}
+
+// CollectPending returns payloads that would be synced (for preview/dry-run).
+func (a *App) CollectPending(ctx context.Context) ([]Payload, error) {
+	return a.collectPayloads()
+}
+
+// SyncOnce performs a one-shot sync and returns the number of uploaded items.
+func (a *App) SyncOnce(ctx context.Context) (int, error) {
+	payloads, err := a.collectPayloads()
+	if err != nil {
+		return 0, err
+	}
+	uploaded := 0
+	for _, p := range payloads {
+		if err := a.client.Remember(ctx, p); err != nil {
+			a.logger.Warn("upload failed", "path", p.SourcePath, "error", err)
+			continue
+		}
+		a.state.Records[checkpointKey(p)] = FileState{SHA256: p.Hash, LastSyncHash: p.Hash}
+		uploaded++
+	}
+	if err := a.state.Save(a.cfg.Sync.StateFile); err != nil {
+		return uploaded, err
+	}
+	return uploaded, nil
+}
+
 func NewLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
