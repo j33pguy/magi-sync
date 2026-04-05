@@ -38,8 +38,15 @@ func globToRegexp(pattern string) *regexp.Regexp {
 		switch pattern[i] {
 		case '*':
 			if i+1 < len(pattern) && pattern[i+1] == '*' {
-				b.WriteString(".*")
-				i += 2
+				// ** matches zero or more path segments
+				// Consume trailing / if present (so **/ means "any dirs including none")
+				if i+2 < len(pattern) && pattern[i+2] == '/' {
+					b.WriteString("(.+/)?")
+					i += 3
+				} else {
+					b.WriteString(".*")
+					i += 2
+				}
 			} else {
 				b.WriteString(`[^/]*`)
 				i++

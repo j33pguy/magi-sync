@@ -11,9 +11,10 @@ import (
 )
 
 type Client struct {
-	baseURL string
-	token   string
-	client  *http.Client
+	baseURL    string
+	token      string
+	maxRetries int
+	client     *http.Client
 }
 
 type enrollRequest struct {
@@ -50,8 +51,9 @@ type rememberRequest struct {
 
 func NewClient(cfg ServerConfig) *Client {
 	return &Client{
-		baseURL: strings.TrimRight(cfg.URL, "/"),
-		token:   cfg.Token,
+		baseURL:    strings.TrimRight(cfg.URL, "/"),
+		token:      cfg.Token,
+		maxRetries: 3,
 		client: &http.Client{
 			Timeout: 20 * time.Second,
 		},
@@ -144,6 +146,48 @@ func (c *Client) Health(ctx context.Context) error {
 	return nil
 }
 
+// RememberBatch uploads multiple payloads in a single batch request.
+// Falls back to individual uploads if the batch endpoint is not available.
+func (c *Client) RememberBatch(ctx context.Context, payloads []Payload) (int, error) {
+	if len(payloads) == 0 {
+		return 0, nil
+	}
+
+	// Try batch endpoint first
+	items := make([]rememberRequest, len(payloads))
+	for i, p := range payloads {
+		items[i] = rememberRequest{
+			Content:    p.Content,
+			Summary:    p.Summary,
+			Project:    p.Project,
+			Type:       p.Type,
+			Visibility: p.Visibility,
+			Tags:       p.Tags,
+			Source:     p.Source,
+			Speaker:    p.Speaker,
+		}
+	}
+
+	body, err := json.Marshal(map[string]any{"memories": items})
+	if err != nil {
+		return 0, fmt.Errorf("marshal batch: %w", err)
+	}
+
+	if err := c.postJSONWithRetry(ctx, "/sync/memories/batch", body, true); err == nil {
+		return len(payloads), nil
+	}
+
+	// Fall back to individual uploads
+	uploaded := 0
+	for _, p := range payloads {
+		if err := c.Remember(ctx, p); err != nil {
+			continue
+		}
+		uploaded++
+	}
+	return uploaded, nil
+}
+
 func (c *Client) postJSON(ctx context.Context, path string, body []byte, auth bool) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
@@ -164,6 +208,47 @@ func (c *Client) postJSON(ctx context.Context, path string, body []byte, auth bo
 		return fmt.Errorf("request to %s returned status %d", path, resp.StatusCode)
 	}
 	return nil
+}
+
+// postJSONWithRetry wraps postJSON with exponential backoff retry.
+func (c *Client) postJSONWithRetry(ctx context.Context, path string, body []byte, auth bool) error {
+	var lastErr error
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		lastErr = c.postJSON(ctx, path, body, auth)
+		if lastErr == nil {
+			return nil
+		}
+		// Don't retry 4xx errors (except 429)
+		if isClientError(lastErr) && !isRateLimited(lastErr) {
+			return lastErr
+		}
+	}
+	return lastErr
+}
+
+func isClientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for status := 400; status < 500; status++ {
+		if strings.HasSuffix(msg, fmt.Sprintf("returned status %d", status)) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRateLimited(err error) bool {
+	return err != nil && strings.HasSuffix(err.Error(), "returned status 429")
 }
 
 func isNotFoundError(err error) bool {

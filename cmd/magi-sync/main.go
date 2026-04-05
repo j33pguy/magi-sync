@@ -12,10 +12,54 @@ import (
 	"github.com/j33pguy/magi-sync/internal/syncagent"
 )
 
+// Set via -ldflags at build time
+var version = "dev"
+
+const usage = `magi-sync — cross-machine memory sync agent for MAGI
+
+Usage:
+  magi-sync [flags] <command>
+
+Commands:
+  init        Interactive setup wizard (creates config)
+  enroll      Register this machine with the MAGI server
+  check       Validate config and test server connectivity
+  dry-run     Preview what would sync (no upload)
+  once        Sync once and exit
+  run         Sync on a repeating interval (default 30s)
+  watch       Real-time sync via filesystem events (recommended)
+
+Flags:
+  --config <path>   Config file path (default: ~/.config/magi-sync/config.yaml)
+  --mcp             Run as MCP server over stdin/stdout
+  --version         Print version and exit
+  --help            Show this help
+
+Examples:
+  magi-sync init                         # first-time setup
+  magi-sync check                        # validate everything
+  magi-sync once                         # one-shot sync
+  magi-sync watch                        # continuous sync (production)
+  magi-sync --mcp                        # MCP server for AI agents
+  magi-sync --config /path/to/cfg watch  # custom config location
+
+Docs: https://github.com/j33pguy/magi-sync/wiki
+`
+
 func main() {
 	configPath := flag.String("config", syncagent.DefaultConfigPath(), "Path to magi-sync config file")
 	mcpOnly := flag.Bool("mcp", false, "Run as MCP server over stdin/stdout")
+	showVersion := flag.Bool("version", false, "Print version and exit")
+
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, usage)
+	}
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("magi-sync %s\n", version)
+		return
+	}
 
 	// MCP mode — run as Model Context Protocol server
 	if *mcpOnly {
@@ -31,6 +75,10 @@ func main() {
 	mode := syncagent.ModeOnce
 	if flag.NArg() > 0 {
 		mode = syncagent.Mode(flag.Arg(0))
+	} else if flag.NArg() == 0 {
+		// No command given — show help
+		flag.Usage()
+		os.Exit(0)
 	}
 
 	// Init mode runs before config loading (config may not exist yet)
@@ -52,7 +100,8 @@ func main() {
 		syncagent.ModeWatch:  true,
 	}
 	if !validModes[mode] {
-		fmt.Fprintf(os.Stderr, "unknown mode %q; valid modes: init, enroll, check, dry-run, once, run, watch\n", mode)
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", mode)
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -65,6 +114,7 @@ func main() {
 	cfg, err := syncagent.LoadConfig(cfgPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nRun 'magi-sync init' to create a config file.\n")
 		os.Exit(1)
 	}
 

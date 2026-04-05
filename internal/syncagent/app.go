@@ -318,6 +318,12 @@ func (a *App) collectPayloads() ([]Payload, error) {
 			if err != nil {
 				return nil, err
 			}
+		case "codex":
+			var err error
+			payloads, err = (codexAdapter{}).Scan(a.cfg, agent, a.cfg.Privacy)
+			if err != nil {
+				return nil, err
+			}
 		case "settings":
 			var err error
 			payloads, err = (settingsAdapter{}).Scan(a.cfg, agent)
@@ -353,20 +359,52 @@ func (a *App) CollectPending(ctx context.Context) ([]Payload, error) {
 }
 
 // SyncOnce performs a one-shot sync and returns the number of uploaded items.
+// Uses batch upload when possible, falling back to individual uploads.
 func (a *App) SyncOnce(ctx context.Context) (int, error) {
 	payloads, err := a.collectPayloads()
 	if err != nil {
 		return 0, err
 	}
+	if len(payloads) == 0 {
+		return 0, nil
+	}
+
 	uploaded := 0
-	for _, p := range payloads {
-		if err := a.client.Remember(ctx, p); err != nil {
-			a.logger.Warn("upload failed", "path", p.SourcePath, "error", err)
+	batchSize := a.cfg.Sync.MaxBatchSize
+	if batchSize <= 0 {
+		batchSize = 50
+	}
+
+	// Upload in batches
+	for i := 0; i < len(payloads); i += batchSize {
+		end := i + batchSize
+		if end > len(payloads) {
+			end = len(payloads)
+		}
+		batch := payloads[i:end]
+
+		n, err := a.client.RememberBatch(ctx, batch)
+		if err != nil {
+			a.logger.Warn("batch upload failed", "batch_size", len(batch), "error", err)
+			// Fall back to individual uploads for this batch
+			for _, p := range batch {
+				if err := a.client.Remember(ctx, p); err != nil {
+					a.logger.Warn("upload failed", "path", p.SourcePath, "error", err)
+					continue
+				}
+				a.state.Records[checkpointKey(p)] = FileState{SHA256: p.Hash, LastSyncHash: p.Hash}
+				uploaded++
+			}
 			continue
 		}
-		a.state.Records[checkpointKey(p)] = FileState{SHA256: p.Hash, LastSyncHash: p.Hash}
-		uploaded++
+
+		// Update state for successfully batched items
+		for _, p := range batch[:n] {
+			a.state.Records[checkpointKey(p)] = FileState{SHA256: p.Hash, LastSyncHash: p.Hash}
+		}
+		uploaded += n
 	}
+
 	if err := a.state.Save(a.cfg.Sync.StateFile); err != nil {
 		return uploaded, err
 	}

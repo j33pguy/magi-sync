@@ -34,7 +34,7 @@ jobs:
               fi
               echo "Building magi-sync $os/$arch..."
               CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
-                go build -trimpath -ldflags="-s -w" \
+                go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
                 -o "dist/magi-sync-${os}-${arch}${ext}" ./cmd/magi-sync/
               echo "Building mcp-config $os/$arch..."
               CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
