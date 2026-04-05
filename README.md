@@ -242,7 +242,7 @@ magi-sync never uploads anything you don't explicitly allow:
 
 ## Requirements
 
-- A running [MAGI](https://github.com/j33pguy/magi) server (v0.4.1+)
+- A running [MAGI](https://github.com/j33pguy/magi) server (v0.3.10+)
 - No dependencies — single static binary
 
 ## License
