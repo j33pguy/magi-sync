@@ -1,4 +1,5 @@
-magi-sync
+/magi-sync
 magi-sync-*
-dist/
+/dist/
 *.exe
+!cmd/
