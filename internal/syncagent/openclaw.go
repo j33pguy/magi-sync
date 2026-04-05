@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/j33pguy/magi-sync/internal/project"
 )
 
 type openclawAdapter struct{}
@@ -144,7 +146,7 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 		return nil
 	}
 
-	project := detectOpenClawProject(path)
+	proj := detectOpenClawProject(path)
 	speaker := "openclaw"
 	if sessionID != "" {
 		speaker = "openclaw:" + sessionID[:8] // short session prefix
@@ -154,6 +156,9 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 	summary := summarizeTurns(turns, 120)
 	tags := identityTags(cfg, agent, "conversation_summary")
 	tags = append(tags, "source:openclaw")
+	if rt := project.RepoTag(proj); rt != "" {
+		tags = append(tags, rt)
+	}
 	if sessionID != "" {
 		tags = append(tags, "session:"+sessionID)
 	}
@@ -164,7 +169,7 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 	summaryPayload := Payload{
 		Content:    content,
 		Summary:    summary,
-		Project:    project,
+		Project:    proj,
 		Type:       "conversation_summary",
 		Visibility: agent.Visibility,
 		Tags:       tags,
@@ -183,6 +188,9 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 			continue
 		}
 		ptags := identityTags(cfg, agent, "conversation")
+		if rt := project.RepoTag(proj); rt != "" {
+			ptags = append(ptags, rt)
+		}
 		ptags = append(ptags, "speaker:"+turn.Role, fmt.Sprintf("turn_index:%d", i), "source:openclaw")
 		if sessionID != "" {
 			ptags = append(ptags, "session:"+sessionID)
@@ -190,7 +198,7 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 		p := Payload{
 			Content:    turnContent,
 			Summary:    fmt.Sprintf("%s turn %d: %s", turn.Role, i+1, firstLine(turnContent, 80)),
-			Project:    project,
+			Project:    proj,
 			Type:       "conversation",
 			Visibility: agent.Visibility,
 			Tags:       ptags,
@@ -216,7 +224,7 @@ func openclawMarkdownPayload(cfg *Config, path string, agent AgentConfig, privac
 		return Payload{}, false
 	}
 
-	project := detectOpenClawProject(path)
+	proj := detectOpenClawProject(path)
 	fileName := filepath.Base(path)
 
 	// Determine speaker based on the file
@@ -235,13 +243,17 @@ func openclawMarkdownPayload(cfg *Config, path string, agent AgentConfig, privac
 		speaker = "openclaw-agent"
 	}
 
+	wsTags := identityTags(cfg, agent, "project_context")
+	if rt := project.RepoTag(proj); rt != "" {
+		wsTags = append(wsTags, rt)
+	}
 	p := Payload{
 		Content:    content,
 		Summary:    firstLine(content, 120),
-		Project:    project,
+		Project:    proj,
 		Type:       "project_context",
 		Visibility: agent.Visibility,
-		Tags:       identityTags(cfg, agent, "project_context"),
+		Tags:       wsTags,
 		Source:     "magi-sync",
 		Speaker:    speaker,
 		SourcePath: path,

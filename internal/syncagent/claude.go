@@ -93,13 +93,18 @@ func markdownPayload(cfg *Config, path string, agent AgentConfig, privacy Privac
 	if content == "" {
 		return Payload{}, false
 	}
+	proj := detectProjectForPath(path)
+	tags := identityTags(cfg, agent, "project_context")
+	if rt := project.RepoTag(proj); rt != "" {
+		tags = append(tags, rt)
+	}
 	p := Payload{
 		Content:    content,
 		Summary:    firstLine(content, 120),
-		Project:    detectProjectForPath(path),
+		Project:    proj,
 		Type:       "project_context",
 		Visibility: agent.Visibility,
-		Tags:       identityTags(cfg, agent, "project_context"),
+		Tags:       tags,
 		Source:     "magi-sync",
 		Speaker:    "claude-subagent",
 		SourcePath: path,
@@ -139,17 +144,20 @@ func jsonlPayloads(cfg *Config, path string, agent AgentConfig, privacy PrivacyC
 	if len(turns) == 0 {
 		return nil
 	}
-	project := detectProjectForPath(path)
+	proj := detectProjectForPath(path)
 	content := formatTurns(turns)
 	summary := summarizeTurns(turns, 120)
 	tags := identityTags(cfg, agent, "conversation_summary")
+	if rt := project.RepoTag(proj); rt != "" {
+		tags = append(tags, rt)
+	}
 	for _, role := range rolesSeen(turns) {
 		tags = append(tags, "speaker:"+role)
 	}
 	summaryPayload := Payload{
 		Content:    content,
 		Summary:    summary,
-		Project:    project,
+		Project:    proj,
 		Type:       "conversation_summary",
 		Visibility: agent.Visibility,
 		Tags:       tags,
@@ -167,11 +175,14 @@ func jsonlPayloads(cfg *Config, path string, agent AgentConfig, privacy PrivacyC
 			continue
 		}
 		ptags := identityTags(cfg, agent, "conversation")
+		if rt := project.RepoTag(proj); rt != "" {
+			ptags = append(ptags, rt)
+		}
 		ptags = append(ptags, "speaker:"+normalizeRole(turn.Role), fmt.Sprintf("turn_index:%d", i))
 		p := Payload{
 			Content:    turnContent,
 			Summary:    fmt.Sprintf("%s turn %d: %s", normalizeRole(turn.Role), i+1, firstLine(turnContent, 80)),
-			Project:    project,
+			Project:    proj,
 			Type:       "conversation",
 			Visibility: agent.Visibility,
 			Tags:       ptags,

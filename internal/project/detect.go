@@ -32,6 +32,32 @@ func gitOrigin(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// RepoTag returns a compact repo tag from a project key detected via git remote.
+// For GitHub repos it returns "ghrepo:owner/repo", for GitLab "glrepo:owner/repo",
+// and for other hosts "repo:host/owner/repo". Returns "" if the key has no host component.
+func RepoTag(projectKey string) string {
+	if projectKey == "" {
+		return ""
+	}
+	parts := strings.SplitN(projectKey, "/", 2)
+	if len(parts) < 2 {
+		return "" // no host component (bare directory name)
+	}
+	host := parts[0]
+	path := parts[1]
+	if path == "" {
+		return ""
+	}
+	switch {
+	case strings.Contains(host, "github"):
+		return "ghrepo:" + path
+	case strings.Contains(host, "gitlab"):
+		return "glrepo:" + path
+	default:
+		return "repo:" + projectKey
+	}
+}
+
 func parseRemote(remote string) string {
 	remote = strings.TrimSpace(remote)
 	if remote == "" {

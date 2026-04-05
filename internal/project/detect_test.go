@@ -101,6 +101,29 @@ func TestDetectProject_FallbackToBasename(t *testing.T) {
 	}
 }
 
+func TestRepoTag(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{"github", "github.com/j33pguy/magi", "ghrepo:j33pguy/magi"},
+		{"gitlab", "gitlab.com/org/project", "glrepo:org/project"},
+		{"custom host", "git.example.com/team/project", "repo:git.example.com/team/project"},
+		{"bare name", "my-project", ""},
+		{"empty", "", ""},
+		{"github deep", "github.com/org/sub/repo", "ghrepo:org/sub/repo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RepoTag(tt.key)
+			if got != tt.want {
+				t.Errorf("RepoTag(%q) = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDetectProject_EmptyDir(t *testing.T) {
 	// When run from a git repo, DetectProject("") may find the repo's remote.
 	// When run outside a git repo, it falls back to ".".
