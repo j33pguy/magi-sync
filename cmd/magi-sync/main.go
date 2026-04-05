@@ -33,6 +33,16 @@ func main() {
 		mode = syncagent.Mode(flag.Arg(0))
 	}
 
+	// Init mode runs before config loading (config may not exist yet)
+	if mode == syncagent.ModeInit {
+		logger := syncagent.NewLogger()
+		if err := syncagent.RunInit(*configPath, logger); err != nil {
+			fmt.Fprintf(os.Stderr, "init error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	validModes := map[syncagent.Mode]bool{
 		syncagent.ModeEnroll: true,
 		syncagent.ModeCheck:  true,
@@ -42,7 +52,7 @@ func main() {
 		syncagent.ModeWatch:  true,
 	}
 	if !validModes[mode] {
-		fmt.Fprintf(os.Stderr, "unknown mode %q; valid modes: enroll, check, dry-run, once, run, watch\n", mode)
+		fmt.Fprintf(os.Stderr, "unknown mode %q; valid modes: init, enroll, check, dry-run, once, run, watch\n", mode)
 		os.Exit(1)
 	}
 
