@@ -1,6 +1,10 @@
-# magi-sync
+<p align="center">
+  <img src="assets/dont-panic-header.svg" width="500" alt="Don't Panic">
+</p>
+<h1 align="center">magi-sync</h1>
+<p align="center"><strong>Cross-machine memory sync agent for <a href="https://github.com/j33pguy/magi">MAGI</a></strong></p>
 
-Cross-machine memory sync agent for [MAGI](https://github.com/j33pguy/magi).
+---
 
 `magi-sync` watches local AI agent files (Claude, OpenClaw, Codex) and syncs them to a central MAGI server. Install it on every machine where you use AI agents, and your context follows you everywhere.
 
