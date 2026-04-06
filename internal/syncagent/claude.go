@@ -137,7 +137,7 @@ func jsonlPayloads(cfg *Config, path string, agent AgentConfig, privacy PrivacyC
 			continue
 		}
 		turns = append(turns, turn)
-		if len(turns) >= 20 {
+		if len(turns) >= 50 {
 			break
 		}
 	}
@@ -154,24 +154,27 @@ func jsonlPayloads(cfg *Config, path string, agent AgentConfig, privacy PrivacyC
 	for _, role := range rolesSeen(turns) {
 		tags = append(tags, "speaker:"+role)
 	}
-	summaryPayload := Payload{
-		Content:    content,
-		Summary:    summary,
-		Project:    proj,
-		Type:       "conversation_summary",
-		Visibility: agent.Visibility,
-		Tags:       tags,
-		Source:     "magi-sync",
-		Speaker:    summarySpeaker(turns),
-		SourcePath: path,
-		Hash:       hashString(content),
+	// Only emit summary if content is substantial enough
+	var payloads []Payload
+	if len(content) >= 20 && len(turns) >= 2 {
+		summaryPayload := Payload{
+			Content:    content,
+			Summary:    summary,
+			Project:    proj,
+			Type:       "conversation_summary",
+			Visibility: agent.Visibility,
+			Tags:       tags,
+			Source:     "magi-sync",
+			Speaker:    summarySpeaker(turns),
+			SourcePath: path,
+			Hash:       hashString(content),
+		}
+		summaryPayload.Key = checkpointKey(summaryPayload)
+		payloads = append(payloads, summaryPayload)
 	}
-	summaryPayload.Key = checkpointKey(summaryPayload)
-
-	payloads := []Payload{summaryPayload}
 	for i, turn := range turns {
 		turnContent := strings.TrimSpace(turn.Content)
-		if turnContent == "" {
+		if turnContent == "" || len(turnContent) < 10 {
 			continue
 		}
 		ptags := identityTags(cfg, agent, "conversation")
