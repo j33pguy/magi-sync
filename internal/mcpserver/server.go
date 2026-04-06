@@ -33,7 +33,7 @@ func New(configPath string, logger *slog.Logger) *Server {
 
 	s.mcpServer = server.NewMCPServer(
 		"magi-sync",
-		"0.1.0",
+		"0.3.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(true, false),
 	)
