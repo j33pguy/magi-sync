@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -67,6 +68,9 @@ func (c *Client) SetToken(token string) {
 }
 
 func (c *Client) Remember(ctx context.Context, p Payload) error {
+	if strings.TrimSpace(p.Content) == "" {
+		return fmt.Errorf("skip: empty content")
+	}
 	body, err := json.Marshal(rememberRequest{
 		Content:    p.Content,
 		Summary:    p.Summary,
@@ -209,6 +213,13 @@ func (c *Client) postJSON(ctx context.Context, path string, body []byte, auth bo
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		var errBody string
+		if b, err := io.ReadAll(io.LimitReader(resp.Body, 512)); err == nil && len(b) > 0 {
+			errBody = string(b)
+		}
+		if errBody != "" {
+			return fmt.Errorf("request to %s returned status %d: %s", path, resp.StatusCode, errBody)
+		}
 		return fmt.Errorf("request to %s returned status %d", path, resp.StatusCode)
 	}
 	return nil

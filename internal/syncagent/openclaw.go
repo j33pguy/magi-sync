@@ -136,8 +136,8 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 			})
 		}
 
-		// Cap at 20 turns to avoid huge payloads
-		if len(turns) >= 20 {
+		// Cap at 50 turns to capture more session context
+		if len(turns) >= 50 {
 			break
 		}
 	}
@@ -166,25 +166,28 @@ func openclawSessionPayloads(cfg *Config, path string, agent AgentConfig, privac
 		tags = append(tags, "speaker:"+role)
 	}
 
-	summaryPayload := Payload{
-		Content:    content,
-		Summary:    summary,
-		Project:    proj,
-		Type:       "conversation_summary",
-		Visibility: agent.Visibility,
-		Tags:       tags,
-		Source:     "magi-sync",
-		Speaker:    speaker,
-		SourcePath: path,
-		Hash:       hashString(content),
+	// Only emit summary if content is substantial
+	var payloads []Payload
+	if len(content) >= 20 && len(turns) >= 2 {
+		summaryPayload := Payload{
+			Content:    content,
+			Summary:    summary,
+			Project:    proj,
+			Type:       "conversation_summary",
+			Visibility: agent.Visibility,
+			Tags:       tags,
+			Source:     "magi-sync",
+			Speaker:    speaker,
+			SourcePath: path,
+			Hash:       hashString(content),
+		}
+		summaryPayload.Key = checkpointKey(summaryPayload)
+		payloads = append(payloads, summaryPayload)
 	}
-	summaryPayload.Key = checkpointKey(summaryPayload)
-
-	payloads := []Payload{summaryPayload}
 
 	for i, turn := range turns {
 		turnContent := strings.TrimSpace(turn.Content)
-		if turnContent == "" {
+		if turnContent == "" || len(turnContent) < 10 {
 			continue
 		}
 		ptags := identityTags(cfg, agent, "conversation")
